@@ -100,12 +100,6 @@ class FireDetectionTrainer:
             }
     
     def load_model(self, model_path: str = None):
-        """
-        Load YOLOv8 model
-        
-        Args:
-            model_path: Path to model weights (uses config if None)
-        """
         model_path = model_path or self.config.get('model', 'yolov8n.pt')
         logger.info(f"Loading model: {model_path}")
         

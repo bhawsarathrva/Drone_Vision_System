@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile
+    container_name: fire_detection_api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_PATH=Model/best.pt
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - LOG_LEVEL=INFO
+    volumes:
+      - ../Model:/app/Model
+      - ../outputs:/app/outputs
+      - ../Dataset:/app/Dataset
+    restart: unless-stopped
+    networks:
+      - fire_detection_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: fire_detection_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginix.conf:/etc/nginx/nginx.conf:ro
+      - ../outputs:/usr/share/nginx/html/outputs:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - fire_detection_network
+
+networks:
+  fire_detection_network:
+    driver: bridge
+

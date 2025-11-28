@@ -1,0 +1,197 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv
+venv/
+ENV/
+env/
+.virtualenv
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# PyTorch & ML Models
+*.pt
+*.pth
+*.onnx
+*.pb
+*.h5
+*.pkl
+*.pickle
+Model/
+models/
+checkpoints/
+*.weights
+weights/best.pt
+weights/last.pt
+
+# YOLO specific
+runs/
+wandb/
+yolov8*.pt
+yolov5*.pt
+yolo*.pt
+
+# Training outputs
+outputs/
+results/
+logs/
+*.log
+
+# Datasets (large files)
+Dataset/
+datasets/
+data/raw/
+data/processed/
+*.zip
+*.tar
+*.tar.gz
+*.rar
+
+# Images and Videos (if large)
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+*.webp
+
+# Exclude sample/demo images (uncomment if you want to keep some)
+# !demo/*.jpg
+# !samples/*.png
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.cache/
+tmp/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation builds
+docs/_build/
+docs/.doctrees/
+site/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+*.log
+docker-compose.override.yml
+
+# Hugging Face cache
+hf_cache/
+.huggingface/
+
+# MLflow
+mlruns/
+mlflow/
+
+# TensorBoard
+events.out.tfevents.*
+
+# Profiling
+*.prof
+
+# Compiled files
+*.pyc
+*.pyo
+*.pyd
+
+# Package manager
+poetry.lock
+Pipfile.lock
+uv.lock
+
+# Keep important files (exceptions)
+!requirements.txt
+!pyproject.toml
+!setup.py
+!README.md
+!LICENSE
+!.dockerignore
+!.gitignore
+
+# Keep config files
+!configs/
+!*.yaml
+!*.yml
+!*.json
+
+# Keep source code
+!src/
+!api/
+!scripts/
+!deployment/
+
+# Keep one sample model for demo (optional - uncomment if needed)
+# !Model/yolov8n.pt

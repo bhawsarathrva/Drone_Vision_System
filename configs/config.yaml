@@ -1,0 +1,110 @@
+# Main configuration file for fire detection system
+# Optimized for drone-based aerial fire detection
+
+system:
+  name: "Fire Detection System"
+  version: "2.0.0"
+  debug: false
+
+model:
+  # Local path or Hugging Face model ID (e.g., "Ultralytics/YOLOv8", "username/model-name")
+  path: "Model/best.pt"
+  
+  # Detection thresholds
+  confidence_threshold: 0.5
+  iou_threshold: 0.45
+  
+  # Model settings
+  device: "auto"  # auto, cpu, or cuda
+  img_size: 640   # Input image size (640, 1280, etc.)
+  use_half: true  # FP16 half-precision (faster on GPU)
+  use_tta: false  # Test Time Augmentation (better accuracy, slower)
+  agnostic_nms: false  # Class-agnostic NMS
+  max_det: 300    # Maximum detections per image
+
+detection:
+  min_confidence: 0.5
+  max_confidence: 1.0
+  use_adaptive_threshold: false
+  adaptive_window: 10
+  
+  # Preprocessing for drone imagery
+  preprocessing_enabled: true
+  denoise_enabled: false  # Enable for noisy drone footage
+  
+  # Temporal filtering (reduce false positives)
+  temporal_filter_enabled: true
+  temporal_window: 5
+  temporal_threshold: 0.6
+
+size_classification:
+  small_threshold: 0.01  
+  medium_threshold: 0.05 
+  large_threshold: 0.15  
+
+camera:
+  source: "0"  # Camera index, RTSP URL, or file path
+  resolution:
+    width: 1920
+    height: 1080
+  fps: 30
+  buffer_size: 5
+  
+  # Performance optimizations
+  adaptive_fps_enabled: true  # Adjust FPS based on detection load
+  min_fps: 10
+  max_fps: 60
+  frame_skip: 0  # Number of frames to skip (0 = process all)
+
+drone:
+  type: "simulator"  # mavlink, dji, custom, simulator
+  connection_string: "udp:127.0.0.1:14550"
+  baudrate: 57600
+  
+  # Drone-specific optimizations
+  stabilization_enabled: true
+  altitude_compensation: true
+
+alerts:
+  threshold: 1  # Minimum detections to trigger alert
+  cooldown_period: 60  # seconds
+  email_enabled: false
+  sms_enabled: false
+  webhook_enabled: false
+  webhook_url: ""
+
+geolocation:
+  default_location:
+    latitude: 22.7196
+    longitude: 75.8577
+  camera_fov_horizontal: 60.0
+  camera_fov_vertical: 45.0
+  
+  # GPS accuracy requirements
+  min_satellite_count: 6
+  min_gps_accuracy: 5.0  # meters
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true
+  cors_origins: ["*"]
+
+logging:
+  level: "INFO"
+  file: "outputs/logs/fire_detection.log"
+  rotation: "10 MB"
+  retention: "7 days"
+
+output:
+  alerts_dir: "outputs/alerts"
+  logs_dir: "outputs/logs"
+  predictions_dir: "outputs/predictions"
+  videos_dir: "outputs/videos"
+  maps_dir: "outputs/maps"
+
+# Performance monitoring
+performance:
+  track_fps: true
+  track_inference_time: true
+  log_statistics_interval: 30  # seconds

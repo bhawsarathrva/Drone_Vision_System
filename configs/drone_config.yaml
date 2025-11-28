@@ -1,0 +1,47 @@
+# Drone configuration
+drone:
+  type: "simulator"  # mavlink, dji, custom, simulator
+  connection_string: "udp:127.0.0.1:14550"
+  baudrate: 57600
+  
+  # MAVLink specific settings
+  mavlink:
+    system_id: 1
+    component_id: 1
+    target_system: 1
+    target_component: 1
+    stream_rate: 4  # Hz
+    
+  # DJI specific settings
+  dji:
+    app_id: ""
+    app_key: ""
+    app_secret: ""
+    
+  # Simulator settings
+  simulator:
+    base_latitude: 22.7196
+    base_longitude: 75.8577
+    base_altitude: 50.0
+    flight_pattern: "circular"  # circular, linear, hover
+    
+telemetry:
+  update_rate: 10  # Hz
+  history_size: 1000
+  gps_min_fix_type: 2  # Minimum GPS fix type (2 = 2D, 3 = 3D)
+
+camera:
+  fov_horizontal: 60.0  # degrees
+  fov_vertical: 45.0    # degrees
+  resolution:
+    width: 1920
+    height: 1080
+  fps: 30
+
+safety:
+  max_altitude: 120.0  # meters
+  min_altitude: 10.0   # meters
+  max_distance: 5000.0  # meters from home
+  low_battery_threshold: 20.0  # percent
+  return_to_home_battery: 15.0  # percent
+

@@ -1,4 +1,7 @@
-path: ./Dataset
-train: train/images
-val: val/images
-test: test/images
+path: .
+train: Dataset/fire.yolov8/train/images
+val: Dataset/fire.yolov8/valid/images
+test: Dataset/fire.yolov8/test/images
+
+nc: 2
+names: ["fire", "smoke"]
