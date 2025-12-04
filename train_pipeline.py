@@ -1,7 +1,3 @@
-"""
-End-to-End Training Pipeline for Fire Detection using YOLOv8
-Uses Hugging Face pretrained model and Roboflow dataset
-"""
 import os
 import sys
 import yaml
@@ -10,9 +6,7 @@ from loguru import logger
 from ultralytics import YOLO
 import torch
 
-class FireDetectionTrainingPipeline:
-    """Complete training pipeline for fire detection"""
-    
+class FireDetectionTrainingPipeline:    
     def __init__(
         self,
         data_yaml: str = "Dataset/data.yaml",
@@ -24,19 +18,6 @@ class FireDetectionTrainingPipeline:
         img_size: int = 640,
         device: str = "auto"
     ):
-        """
-        Initialize training pipeline
-        
-        Args:
-            data_yaml: Path to dataset YAML file
-            model_name: YOLOv8 model variant (n/s/m/l/x)
-            project_name: Project directory name
-            experiment_name: Experiment name
-            epochs: Number of training epochs
-            batch_size: Batch size for training
-            img_size: Image size for training
-            device: Device to use (auto/cpu/cuda)
-        """
         self.data_yaml = data_yaml
         self.model_name = model_name
         self.project_name = project_name
@@ -45,9 +26,12 @@ class FireDetectionTrainingPipeline:
         self.batch_size = batch_size
         self.img_size = img_size
         
-        # Setting Device if cuda not available then use cpu otherwise use colab
         if device == "auto":
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        elif device == "cuda" and not torch.cuda.is_available():
+            logger.warning("⚠️  CUDA requested but not available. Falling back to CPU.")
+            logger.warning("   Training will be slower. Consider using a smaller model (yolov8n.pt)")
+            self.device = "cpu"
         else:
             self.device = device
         
@@ -66,13 +50,11 @@ class FireDetectionTrainingPipeline:
         logger.info("="*70)
     
     def verify_dataset(self):
-        """Verify dataset structure and configuration"""
         logger.info("Verifying dataset...")
         
         if not os.path.exists(self.data_yaml):
             raise FileNotFoundError(f"Dataset YAML not found: {self.data_yaml}")
         
-        # Load and verify YAML
         with open(self.data_yaml, 'r') as f:
             data_config = yaml.safe_load(f)
         
@@ -80,7 +62,6 @@ class FireDetectionTrainingPipeline:
         logger.info(f"  Classes: {data_config.get('nc', 'N/A')}")
         logger.info(f"  Names: {data_config.get('names', 'N/A')}")
         
-        # Verify paths exist
         base_path = Path(self.data_yaml).parent
         for split in ['train', 'val', 'test']:
             if split in data_config:
@@ -95,10 +76,24 @@ class FireDetectionTrainingPipeline:
         return data_config
     
     def load_pretrained_model(self):
-        """Load pretrained YOLOv8 model from Hugging Face"""
         logger.info(f"Loading pretrained model: {self.model_name}")
         
         try:
+            try:
+                from ultralytics.nn import tasks
+                original_torch_safe_load = tasks.torch_safe_load
+                
+                def patched_torch_safe_load(file, *args, **kwargs):
+                    import torch
+                    try:
+                        return torch.load(file, map_location='cpu', weights_only=False), file
+                    except Exception:
+                        return original_torch_safe_load(file, *args, **kwargs)
+                
+                tasks.torch_safe_load = patched_torch_safe_load
+            except Exception as patch_error:
+                logger.warning(f"Could not patch torch_safe_load (non-critical): {patch_error}")
+            
             self.model = YOLO(self.model_name)
             logger.info(f"✓ Model loaded successfully: {self.model_name}")
             
@@ -109,7 +104,6 @@ class FireDetectionTrainingPipeline:
             raise
     
     def train(self):
-        """Train the model on fire detection dataset"""
         logger.info("="*70)
         logger.info("Starting Training")
         logger.info("="*70)
@@ -228,6 +222,22 @@ class FireDetectionTrainingPipeline:
     def export_model(self, format: str = 'onnx'):
         try:
             logger.info(f"Exporting model to {format} format...")
+            
+            # Fix for PyTorch 2.6+ weights_only=True default behavior
+            try:
+                from ultralytics.nn import tasks
+                original_torch_safe_load = tasks.torch_safe_load
+                
+                def patched_torch_safe_load(file, *args, **kwargs):
+                    """Patched version that uses weights_only=False for PyTorch 2.6+ compatibility"""
+                    try:
+                        return torch.load(file, map_location='cpu', weights_only=False), file
+                    except Exception:
+                        return original_torch_safe_load(file, *args, **kwargs)
+                
+                tasks.torch_safe_load = patched_torch_safe_load
+            except Exception:
+                pass  # Already patched in load_pretrained_model
             
             best_model_path = f"{self.project_name}/{self.experiment_name}/weights/best.pt"
             model = YOLO(best_model_path)

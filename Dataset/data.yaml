@@ -1,7 +1,7 @@
-path: .
-train: Dataset/fire.yolov8/train/images
-val: Dataset/fire.yolov8/valid/images
-test: Dataset/fire.yolov8/test/images
+path: c:\Users\athrv\OneDrive\Desktop\Drone System\Dataset
+train: fire.yolov8/train/images
+val: fire.yolov8/valid/images
+test: fire.yolov8/test/images
 
 nc: 2
 names: ["fire", "smoke"]

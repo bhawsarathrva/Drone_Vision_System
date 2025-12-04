@@ -1,22 +1,4 @@
-"""Create a negative samples dataset for YOLOv8 by copying images into
-Dataset/negatives and creating empty label files.
 
-Categories targeted: yagya, sun, light, reflection
-
-Usage examples:
-  # From a folder of images per category
-  python scripts/add_negatives.py --source "C:/images/yagya" --category yagya
-  python scripts/add_negatives.py --source "C:/images/sun" --category sun
-  python scripts/add_negatives.py --source "C:/images/light" --category light
-  python scripts/add_negatives.py --source "C:/images/reflection" --category reflection
-
-  # Split ratios can be changed:
-  python scripts/add_negatives.py --source ./photos --category sun --split 0.8 0.1 0.1
-
-Notes:
-  - This script only copies images and creates empty .txt labels.
-  - Supported image extensions: .jpg, .jpeg, .png
-"""
 import argparse
 import shutil
 from pathlib import Path
@@ -26,13 +8,6 @@ SUPPORTED_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 CATEGORIES = {"yagya", "sun", "light", "reflection"}
 
 def ensure_structure(root: Path):
-    """
-    Ensure YOLO directory structure for negatives:
-      negatives/
-        train/images, train/labels
-        val/images, val/labels
-        test/images, test/labels
-    """
     for split in ["train", "val", "test"]:
         (root / split / "images").mkdir(parents=True, exist_ok=True)
         (root / split / "labels").mkdir(parents=True, exist_ok=True)
@@ -64,11 +39,9 @@ def copy_with_empty_label(files, split_dir: Path, category: str):
     copied = 0
 
     for src in files:
-        # Preserve stem, normalize extension to .jpg where possible to reduce variety
         dst_img = img_dir / src.name
         try:
             shutil.copy2(src, dst_img)
-            # Create empty label
             dst_lbl = lbl_dir / f"{dst_img.stem}.txt"
             dst_lbl.touch(exist_ok=True)
             copied += 1

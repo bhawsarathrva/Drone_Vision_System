@@ -19,22 +19,11 @@ class FireDetectionPredictionPipeline:
         device: str = "auto",
         img_size: int = 640
     ):
-        """
-        Initialize prediction pipeline
-        
-        Args:
-            model_path: Path to trained model
-            confidence_threshold: Confidence threshold for detections
-            iou_threshold: IoU threshold for NMS
-            device: Device to use (auto/cpu/cuda)
-            img_size: Image size for inference
-        """
         self.model_path = model_path
         self.confidence_threshold = confidence_threshold
         self.iou_threshold = iou_threshold
         self.img_size = img_size
         
-        # Set device
         if device == "auto":
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
         else:
@@ -55,16 +44,35 @@ class FireDetectionPredictionPipeline:
         self.load_model()
     
     def load_model(self):
-        """Load trained model"""
         try:
             if not os.path.exists(self.model_path):
                 raise FileNotFoundError(f"Model not found: {self.model_path}")
+            
+            # Fix for PyTorch 2.6+ weights_only=True default behavior
+            # Monkey-patch ultralytics' torch_safe_load to use weights_only=False
+            # This is safe for YOLO models from trusted sources
+            try:
+                from ultralytics.nn import tasks
+                original_torch_safe_load = tasks.torch_safe_load
+                
+                def patched_torch_safe_load(file, *args, **kwargs):
+                    """Patched version that uses weights_only=False for PyTorch 2.6+ compatibility"""
+                    try:
+                        # Try loading with weights_only=False for compatibility
+                        return torch.load(file, map_location='cpu', weights_only=False), file
+                    except Exception:
+                        # Fallback to original implementation
+                        return original_torch_safe_load(file, *args, **kwargs)
+                
+                tasks.torch_safe_load = patched_torch_safe_load
+                logger.debug("Patched ultralytics.nn.tasks.torch_safe_load for PyTorch 2.6 compatibility")
+            except Exception as patch_error:
+                logger.warning(f"Could not patch torch_safe_load (non-critical): {patch_error}")
             
             logger.info(f"Loading model from: {self.model_path}")
             self.model = YOLO(self.model_path)
             self.model.to(self.device)
             
-            # Get class names
             if hasattr(self.model, 'names'):
                 self.class_names = self.model.names
                 logger.info(f"Classes: {self.class_names}")
@@ -319,10 +327,27 @@ def main():
     """Main function to run prediction pipeline"""
     import argparse
     
-    parser = argparse.ArgumentParser(description='Fire Detection Prediction Pipeline')
+    parser = argparse.ArgumentParser(
+        description='Fire Detection Prediction Pipeline',
+        epilog='''
+Examples:
+  # Predict on an image
+  python predict_pipeline.py --source path/to/image.jpg --save
+  
+  # Predict on a video
+  python predict_pipeline.py --source path/to/video.mp4 --save
+  
+  # Predict on a directory of images
+  python predict_pipeline.py --source path/to/images/ --save
+  
+  # Predict on camera feed (use camera index, e.g., 0)
+  python predict_pipeline.py --source 0
+        ''',
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument('--model', type=str, default='Model/best.pt',
                        help='Path to trained model')
-    parser.add_argument('--source', type=str, required=True,
+    parser.add_argument('--source', type=str, default=None,
                        help='Source: image path, video path, camera index (0), or directory')
     parser.add_argument('--conf', type=float, default=0.25,
                        help='Confidence threshold')
@@ -338,6 +363,26 @@ def main():
                        help='Output directory')
     
     args = parser.parse_args()
+    
+    # Validate source
+    if args.source is None:
+        logger.error("❌ Error: --source argument is required!")
+        logger.info("\n" + "="*70)
+        logger.info("USAGE EXAMPLES:")
+        logger.info("="*70)
+        logger.info("1. Predict on an image:")
+        logger.info("   python predict_pipeline.py --source path/to/image.jpg --save")
+        logger.info("")
+        logger.info("2. Predict on a video:")
+        logger.info("   python predict_pipeline.py --source path/to/video.mp4 --save")
+        logger.info("")
+        logger.info("3. Predict on a directory of images:")
+        logger.info("   python predict_pipeline.py --source path/to/images/ --save")
+        logger.info("")
+        logger.info("4. Predict on camera feed (use camera index):")
+        logger.info("   python predict_pipeline.py --source 0")
+        logger.info("="*70 + "\n")
+        sys.exit(1)
     
     pipeline = FireDetectionPredictionPipeline(
         model_path=args.model,
