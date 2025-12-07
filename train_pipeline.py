@@ -3,8 +3,18 @@ import sys
 import yaml
 from pathlib import Path
 from loguru import logger
+
+# Disable MLflow integration BEFORE importing ultralytics
+os.environ['MLFLOW_TRACKING_URI'] = ''
+os.environ['MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING'] = 'false'
+os.environ['MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR'] = 'false'
+
 from ultralytics import YOLO
+from ultralytics import settings
 import torch
+
+# Disable MLflow in ultralytics settings
+settings.update({'mlflow': False})
 
 class FireDetectionTrainingPipeline:    
     def __init__(

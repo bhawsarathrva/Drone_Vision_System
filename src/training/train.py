@@ -1,12 +1,19 @@
-"""
-Training script for YOLOv8 fire detection model
-"""
 import os
 import yaml
 from pathlib import Path
+
+# This must be done before ultralytics is imported to prevent MLflow initialization
+os.environ['MLFLOW_TRACKING_URI'] = 'http://localhost:5000'
+os.environ['MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING'] = 'false'
+os.environ['MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR'] = 'false'
+
 from ultralytics import YOLO
+from ultralytics import settings
 import torch
 from loguru import logger
+
+# Disable MLflow in ultralytics settings
+settings.update({'mlflow': False})
 
 class FireDetectionTrainer:
     def __init__(self, config_path: str = "configs/training_config.yaml"):
@@ -102,6 +109,26 @@ class FireDetectionTrainer:
     def load_model(self, model_path: str = None):
         model_path = model_path or self.config.get('model', 'yolov8n.pt')
         logger.info(f"Loading model: {model_path}")
+        
+        # Fix for PyTorch 2.6+ weights_only=True default behavior
+        # Monkey-patch ultralytics' torch_safe_load to use weights_only=False
+        try:
+            from ultralytics.nn import tasks
+            original_torch_safe_load = tasks.torch_safe_load
+            
+            def patched_torch_safe_load(file, *args, **kwargs):
+                """Patched version that uses weights_only=False for PyTorch 2.6+ compatibility"""
+                try:
+                    # Try loading with weights_only=False for compatibility
+                    return torch.load(file, map_location='cpu', weights_only=False), file
+                except Exception:
+                    # Fallback to original implementation
+                    return original_torch_safe_load(file, *args, **kwargs)
+            
+            tasks.torch_safe_load = patched_torch_safe_load
+            logger.debug("Patched ultralytics.nn.tasks.torch_safe_load for PyTorch 2.6 compatibility")
+        except Exception as patch_error:
+            logger.warning(f"Could not patch torch_safe_load (non-critical): {patch_error}")
         
         # Check if model exists locally, otherwise use pretrained
         if not os.path.exists(model_path):

@@ -2,6 +2,11 @@ import sys
 import os
 from loguru import logger
 
+# Disable MLflow integration BEFORE any imports
+os.environ['MLFLOW_TRACKING_URI'] = ''
+os.environ['MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING'] = 'false'
+os.environ['MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR'] = 'false'
+
 # Add src to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

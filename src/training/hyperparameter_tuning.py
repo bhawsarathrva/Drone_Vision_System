@@ -1,21 +1,26 @@
-"""
-Hyperparameter tuning for fire detection model
-"""
 import os
 import yaml
 from pathlib import Path
-from ultralytics import YOLO
-from loguru import logger
 import itertools
+
+# Disable MLflow integration BEFORE importing ultralytics
+os.environ['MLFLOW_TRACKING_URI'] = ''
+os.environ['MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING'] = 'false'
+os.environ['MLFLOW_ENABLE_ARTIFACTS_PROGRESS_BAR'] = 'false'
+
+from ultralytics import YOLO
+from ultralytics import settings
+import torch
+from loguru import logger
+
+# Disable MLflow in ultralytics settings
+settings.update({'mlflow': False})
+
+# Determine project root
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 class HyperparameterTuner:
     def __init__(self, base_config: dict):
-        """
-        Initialize hyperparameter tuner
-        
-        Args:
-            base_config: Base configuration dictionary
-        """
         self.base_config = base_config
         self.results = []
     
@@ -26,15 +31,6 @@ class HyperparameterTuner:
         epochs: int = 50,
         max_trials: int = None
     ):
-        """
-        Perform grid search over hyperparameters
-        
-        Args:
-            param_grid: Dictionary of parameter ranges
-            data_path: Path to data.yaml file
-            epochs: Number of epochs per trial
-            max_trials: Maximum number of trials (None for all)
-        """
         # Generate parameter combinations
         param_names = list(param_grid.keys())
         param_values = [param_grid[name] for name in param_names]
@@ -47,6 +43,29 @@ class HyperparameterTuner:
         
         best_score = 0
         best_params = None
+        
+        # Monkey-patch ultralytics' torch_safe_load for PyTorch 2.6+ compatibility
+        try:
+            from ultralytics.nn import tasks
+            
+            # Only patch if not already patched (check attribute)
+            if not hasattr(tasks, '_is_patched_by_tuner'):
+                if hasattr(tasks, 'torch_safe_load'):
+                    original_torch_safe_load = tasks.torch_safe_load
+                    
+                    def patched_torch_safe_load(file, *args, **kwargs):
+                        try:
+                            # Verify if torch is imported
+                            import torch
+                            return torch.load(file, map_location='cpu', weights_only=False), file
+                        except Exception:
+                            return original_torch_safe_load(file, *args, **kwargs)
+                    
+                    tasks.torch_safe_load = patched_torch_safe_load
+                    tasks._is_patched_by_tuner = True
+                    logger.info("Patched ultralytics.nn.tasks.torch_safe_load for PyTorch 2.6 compatibility")
+        except Exception as e:
+            logger.warning(f"Failed to patch torch_safe_load: {e}")
         
         for i, combination in enumerate(combinations):
             params = dict(zip(param_names, combination))
@@ -61,7 +80,8 @@ class HyperparameterTuner:
             
             # Train model
             try:
-                model = YOLO(config.get('model', 'yolov8n.pt'))
+                model_name = config.get('model', 'yolov8n.pt')
+                model = YOLO(model_name)
                 results = model.train(**config)
                 
                 # Get validation score
@@ -114,10 +134,14 @@ def main():
     """Main hyperparameter tuning function"""
     import argparse
     
+    # Default paths handling
+    default_config = PROJECT_ROOT / 'configs' / 'training_config.yaml'
+    default_data = PROJECT_ROOT / 'Dataset' / 'data.yaml'
+    
     parser = argparse.ArgumentParser(description='Hyperparameter tuning for fire detection')
-    parser.add_argument('--config', type=str, default='configs/training_config.yaml',
+    parser.add_argument('--config', type=str, default=str(default_config),
                        help='Path to training config file')
-    parser.add_argument('--data', type=str, default='Dataset/data.yaml',
+    parser.add_argument('--data', type=str, default=str(default_data),
                        help='Path to data.yaml file')
     parser.add_argument('--epochs', type=int, default=50,
                        help='Number of epochs per trial')
@@ -127,8 +151,21 @@ def main():
     args = parser.parse_args()
     
     # Load base config
+    if not os.path.exists(args.config):
+        # Try relative path if absolute fail
+        if os.path.exists(os.path.join(PROJECT_ROOT, args.config)):
+             args.config = os.path.join(PROJECT_ROOT, args.config)
+        else:
+             logger.error(f"Config file not found: {args.config}")
+             return
+
     with open(args.config, 'r') as f:
         base_config = yaml.safe_load(f)
+    
+    # Ensure data path is correct
+    if not os.path.exists(args.data):
+        if os.path.exists(os.path.join(PROJECT_ROOT, args.data)):
+            args.data = os.path.join(PROJECT_ROOT, args.data)
     
     # Define parameter grid
     param_grid = {
@@ -147,7 +184,8 @@ def main():
     )
     
     # Save results
-    tuner.save_results('outputs/hyperparameter_tuning_results.json')
+    output_json = PROJECT_ROOT / 'outputs' / 'hyperparameter_tuning_results.json'
+    tuner.save_results(str(output_json))
     
     logger.info(f"Best parameters: {best_params}")
     logger.info(f"Best score: {best_score:.4f}")

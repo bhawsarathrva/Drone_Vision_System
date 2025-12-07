@@ -10,46 +10,50 @@ def setup_pytorch_compatibility():
     Setup PyTorch compatibility for loading YOLO models.
     
     PyTorch 2.6+ changed the default value of weights_only from False to True
-    for security reasons. This function adds Ultralytics classes to the safe
-    globals list to allow loading YOLO models.
+    for security reasons. This function monkey-patches ultralytics' torch_safe_load
+    to use weights_only=False, which is safe for YOLO models from trusted sources.
+    
+    Returns:
+        bool: True if patch was applied, False otherwise
     """
     try:
         # Check PyTorch version
         pytorch_version = torch.__version__
-        major, minor = map(int, pytorch_version.split('.')[:2])
+        version_parts = pytorch_version.split('.')
+        major = int(version_parts[0])
+        minor = int(version_parts[1].split('+')[0]) if '+' in version_parts[1] else int(version_parts[1])
         
         if major > 2 or (major == 2 and minor >= 6):
             logger.info(f"Detected PyTorch {pytorch_version} - Applying compatibility fix")
             
-            # Add Ultralytics classes to safe globals
-            import torch.serialization
-            
-            # Import all necessary Ultralytics classes
+            # Monkey-patch ultralytics' torch_safe_load function
             try:
-                from ultralytics.nn.tasks import DetectionModel, SegmentationModel, ClassificationModel, PoseModel
-                from ultralytics.nn.modules import (
-                    Conv, C2f, SPPF, Detect, Segment, Classify, Pose,
-                    C3, C3TR, SPP, DWConv, Focus, BottleneckCSP, C3Ghost
-                )
+                from ultralytics.nn import tasks
                 
-                # Add all model-related classes to safe globals
-                safe_classes = [
-                    DetectionModel, SegmentationModel, ClassificationModel, PoseModel,
-                    Conv, C2f, SPPF, Detect, Segment, Classify, Pose,
-                    C3, C3TR, SPP, DWConv, Focus, BottleneckCSP, C3Ghost
-                ]
+                # Store original function
+                if not hasattr(tasks, '_original_torch_safe_load'):
+                    tasks._original_torch_safe_load = tasks.torch_safe_load
                 
-                torch.serialization.add_safe_globals(safe_classes)
-                logger.info(f"✓ Added {len(safe_classes)} Ultralytics classes to PyTorch safe globals")
+                def patched_torch_safe_load(file, *args, **kwargs):
+                    """
+                    Patched version that uses weights_only=False for PyTorch 2.6+ compatibility.
+                    This is safe for YOLO models from trusted sources (official ultralytics models).
+                    """
+                    try:
+                        # Try loading with weights_only=False for compatibility
+                        return torch.load(file, map_location='cpu', weights_only=False), file
+                    except Exception:
+                        # Fallback to original implementation
+                        return tasks._original_torch_safe_load(file, *args, **kwargs)
                 
-            except ImportError as ie:
-                # Fallback: just add DetectionModel if other imports fail
-                logger.warning(f"Could not import all Ultralytics classes: {ie}")
-                from ultralytics.nn.tasks import DetectionModel
-                torch.serialization.add_safe_globals([DetectionModel])
-                logger.info("✓ Added DetectionModel to PyTorch safe globals (minimal)")
-            
-            return True
+                # Apply the patch
+                tasks.torch_safe_load = patched_torch_safe_load
+                logger.info("✓ Patched ultralytics.nn.tasks.torch_safe_load for PyTorch 2.6 compatibility")
+                return True
+                
+            except Exception as patch_error:
+                logger.warning(f"Could not patch torch_safe_load: {patch_error}")
+                return False
         else:
             logger.debug(f"PyTorch {pytorch_version} - No compatibility fix needed")
             return False
